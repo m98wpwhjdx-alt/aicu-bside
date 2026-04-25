@@ -1054,6 +1054,16 @@ POCUS (2 PM): LV function good with EF ~50%, no RWMA, mild MR, no AR/RV dilatati
       <div class="modal-field"><label class="modal-label">Date of Admission</label><input class="modal-input" id="am-adm" type="text" placeholder="21.04.2026"></div>
       <div class="modal-field"><label class="modal-label">Primary Diagnosis</label><input class="modal-input" id="am-dx" type="text" placeholder="Brief diagnosis"></div>
       <div class="modal-field"><label class="modal-label">Brief HOPI</label><textarea class="modal-textarea" id="am-hopi" placeholder="Brief history of present illness…"></textarea></div>
+      <div class="modal-field"><label class="modal-label">Admission Vitals</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <input class="modal-input" id="am-hr" type="text" placeholder="HR (e.g. 110/min)" style="flex:1;min-width:120px;">
+          <input class="modal-input" id="am-bp" type="text" placeholder="BP (e.g. 100/60)" style="flex:1;min-width:120px;">
+          <input class="modal-input" id="am-spo2" type="text" placeholder="SpO₂ (e.g. 96% MV)" style="flex:1;min-width:120px;">
+          <input class="modal-input" id="am-gcs" type="text" placeholder="GCS (e.g. E2V1M4)" style="flex:1;min-width:120px;">
+        </div>
+      </div>
+      <div class="modal-field"><label class="modal-label">Ventilation / Support</label><input class="modal-input" id="am-vent" type="text" placeholder="e.g. MV VC-AC FiO₂60% PEEP6, or NIV, or RA"></div>
+      <div class="modal-field"><label class="modal-label">Admission Note</label><textarea class="modal-textarea" id="am-admit-note" placeholder="Lines secured, POCUS findings, vasopressors, etc…"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="modal-btn modal-btn-cancel" onclick="closeAdmitModal()">Cancel</button>
@@ -1313,6 +1323,12 @@ function openAdmitModal() {
   document.getElementById("am-adm").value = `${String(today.getDate()).padStart(2,"0")}.${String(today.getMonth()+1).padStart(2,"0")}.${today.getFullYear()}`;
   document.getElementById("am-dx").value = "";
   document.getElementById("am-hopi").value = "";
+  document.getElementById("am-hr").value = "";
+  document.getElementById("am-bp").value = "";
+  document.getElementById("am-spo2").value = "";
+  document.getElementById("am-gcs").value = "";
+  document.getElementById("am-vent").value = "";
+  document.getElementById("am-admit-note").value = "";
   document.getElementById("admit-modal").classList.add("open");
   if (window.innerWidth < 900) document.body.classList.remove("sb-open");
   setTimeout(() => document.getElementById("am-bed").focus(), 100);
@@ -1326,6 +1342,12 @@ function confirmAdmit() {
   const adm = document.getElementById("am-adm").value.trim();
   const dx = document.getElementById("am-dx").value.trim();
   const hopi = document.getElementById("am-hopi").value.trim();
+  const hr   = document.getElementById("am-hr").value.trim();
+  const bp   = document.getElementById("am-bp").value.trim();
+  const spo2 = document.getElementById("am-spo2").value.trim();
+  const gcs  = document.getElementById("am-gcs").value.trim();
+  const vent = document.getElementById("am-vent").value.trim();
+  const admitNote = document.getElementById("am-admit-note").value.trim();
   if (!bed || !name) { alert("Bed number and patient name are required."); return; }
 
   // Check if bed already exists
@@ -1346,7 +1368,17 @@ function confirmAdmit() {
     sections: [
       { key:"dx", label:"Diagnosis", html:`<ul class="dx-list"><li class="dx-primary">${dx||"To be documented"}</li></ul>` },
       { key:"hopi", label:"History of Present Illness (HOPI)", html:`<div class="hopi-text"><p>${hopi||"To be documented."}</p></div>` },
-      { key:"admit", label:"AICU Admission Status", html:`<div class="hopi-text"><p>Admitted to Bed ${bed}. Clinical assessment and investigations underway.</p></div>` },
+      { key:"admit", label:"AICU Admission Status", html:(() => {
+        let chips = "";
+        if (hr)   chips += `<div class="vchip"><span class="vl">HR</span>${hr}</div>`;
+        if (bp)   chips += `<div class="vchip"><span class="vl">BP</span>${bp} mmHg</div>`;
+        if (spo2) chips += `<div class="vchip"><span class="vl">SpO\u2082</span>${spo2}</div>`;
+        if (gcs)  chips += `<div class="vchip"><span class="vl">GCS</span>${gcs}</div>`;
+        if (vent) chips += `<div class="vchip"><span class="vl">Ventilation</span>${vent}</div>`;
+        const vitalsRow = chips ? `<div class="vitals-row">${chips}</div>` : "";
+        const noteHtml  = admitNote ? `<div class="hopi-text"><p>${admitNote}</p></div>` : `<div class="hopi-text"><p>Admitted to Bed ${bed}. Clinical assessment and investigations underway.</p></div>`;
+        return vitalsRow + noteHtml;
+      })() },
       { key:"course", label:"AICU Course", html:`<table class="course-table"><tbody><tr class="today"><td>${dateStr}</td><td contenteditable>New admission Bed ${bed}. ${dx||""}</td></tr></tbody></table><div class="add-date-wrap"><button class="btn-add-date" onclick="openDateModal(this)">＋ Add Date Entry</button></div>` },
     ]
   };
@@ -1602,6 +1634,11 @@ function openGithubModal() {
     modal.innerHTML = `
       <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6);" onclick="closeGhModal()"></div>
       <div style="position:relative;background:#fff;border-radius:12px;width:100%;max-width:430px;box-shadow:0 12px 60px rgba(0,0,0,0.3);z-index:1;overflow:hidden;">
+        <div id="gh-local-warning" style="display:none;background:#fff3cd;border-bottom:1px solid #ffc107;padding:10px 16px;font-family:JetBrains Mono,monospace;font-size:10px;color:#856404;line-height:1.6;">
+          ⚠️ <b>Local file mode</b> — GitHub API blocked by browser.<br>
+          Clicking Push will <b>download</b> the file instead.<br>
+          Then upload it to GitHub to go live.
+        </div>
         <div style="background:#0d1f38;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
           <div style="font-family:Playfair Display,serif;font-size:15px;font-weight:700;color:#fff;">⬆️ Push to GitHub</div>
           <button onclick="closeGhModal()" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:18px;">✕</button>
@@ -1633,6 +1670,12 @@ function openGithubModal() {
     document.getElementById("gh-path").value = saved.path || "AICU_Update_22_04_26.html";
   }
   modal.style.display = "flex";
+  // Show local-file warning if opened from file://
+  const warn = document.getElementById("gh-local-warning");
+  if (warn) warn.style.display = location.protocol === "file:" ? "block" : "none";
+  // Update push button label
+  const pushBtn = document.getElementById("gh-push-btn");
+  if (pushBtn) pushBtn.textContent = location.protocol === "file:" ? "⬇️ Download" : "⬆️ Push";
 }
 
 function closeGhModal() {
@@ -1647,35 +1690,46 @@ async function pushToGithub() {
   const statusEl = document.getElementById("gh-status");
   const btn = document.getElementById("gh-push-btn");
 
-  if (!repo || !token || !path) { statusEl.style.color="#b83030"; statusEl.textContent = "❌ All fields required."; return; }
+  if (!repo || !token || !path) { statusEl.style.color="#b83030"; statusEl.textContent = "\u274c All fields required."; return; }
 
-  // Save to sessionStorage for convenience
   localStorage.setItem("aicu_gh", JSON.stringify({repo, token, path}));
 
-  btn.textContent = "⏳ Pushing…"; btn.disabled = true;
-  statusEl.style.color = "#1a5fa8"; statusEl.textContent = "Building file…";
+  // If running from file:// the GitHub API is blocked by browser CORS security.
+  // Workaround: download the file so user can upload to GitHub manually.
+  if (location.protocol === "file:") {
+    statusEl.style.color = "#d4730a";
+    statusEl.textContent = "\u26a0\ufe0f Local file mode — downloading…";
+    btn.textContent = "\u23ec Downloading…"; btn.disabled = true;
+    setTimeout(() => {
+      saveHTML();
+      statusEl.style.color = "#1a5fa8";
+      statusEl.innerHTML = `\u2705 File downloaded!<br><small style="color:#7a82a0">Go to github.com/${repo} \u2192 upload this file \u2192 replace <b>${path}</b></small>`;
+      btn.textContent = "\u2b06\ufe0f Push"; btn.disabled = false;
+      showToast("\ud83d\udce5 Downloaded — upload to GitHub to go live", "#d4730a");
+    }, 200);
+    return;
+  }
+
+  // Running from https:// — use GitHub API directly
+  btn.textContent = "\u23f3 Pushing\u2026"; btn.disabled = true;
+  statusEl.style.color = "#1a5fa8"; statusEl.textContent = "Building file\u2026";
 
   const html = buildSaveableHTML();
-  const content = btoa(unescape(encodeURIComponent(html)));
+  const content2 = btoa(unescape(encodeURIComponent(html)));
 
-  // First GET the current file SHA (needed for updates)
-  statusEl.textContent = "Checking existing file…";
+  statusEl.textContent = "Checking existing file\u2026";
   let sha = null;
   try {
     const getRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
       headers: { "Authorization": `token ${token}`, "Accept": "application/vnd.github.v3+json" }
     });
-    if (getRes.ok) {
-      const existing = await getRes.json();
-      sha = existing.sha;
-    }
-  } catch(e) { /* file doesn't exist yet — that's fine */ }
+    if (getRes.ok) { sha = (await getRes.json()).sha; }
+  } catch(e) {}
 
-  // PUT the file
-  statusEl.textContent = sha ? "Updating existing file…" : "Creating new file…";
+  statusEl.textContent = sha ? "Updating existing file\u2026" : "Creating new file\u2026";
   const body = {
     message: `AICU update ${new Date().toISOString().slice(0,16).replace("T"," ")} IST`,
-    content,
+    content: content2,
     ...(sha ? {sha} : {})
   };
 
@@ -1692,20 +1746,20 @@ async function pushToGithub() {
     if (putRes.ok) {
       const data = await putRes.json();
       statusEl.style.color = "#1a7a4a";
-      statusEl.textContent = `✅ Pushed! Commit: ${data.commit?.sha?.slice(0,7) || "done"}`;
-      showToast("✅ Pushed to GitHub successfully!", "#1a7a4a");
-      btn.textContent = "✅ Done";
-      setTimeout(() => { btn.textContent = "⬆️ Push"; btn.disabled = false; }, 2500);
+      statusEl.textContent = `\u2705 Pushed! Commit: ${data.commit?.sha?.slice(0,7) || "done"}`;
+      showToast("\u2705 Pushed to GitHub successfully!", "#1a7a4a");
+      btn.textContent = "\u2705 Done";
+      setTimeout(() => { btn.textContent = "\u2b06\ufe0f Push"; btn.disabled = false; }, 2500);
     } else {
       const err = await putRes.json().catch(()=>({}));
       statusEl.style.color = "#b83030";
-      statusEl.textContent = `❌ GitHub error ${putRes.status}: ${err.message || "Unknown error"}`;
-      btn.textContent = "⬆️ Push"; btn.disabled = false;
+      statusEl.textContent = `\u274c GitHub error ${putRes.status}: ${err.message || "Unknown error"}`;
+      btn.textContent = "\u2b06\ufe0f Push"; btn.disabled = false;
     }
   } catch(e) {
     statusEl.style.color = "#b83030";
-    statusEl.textContent = "❌ Network error: " + e.message;
-    btn.textContent = "⬆️ Push"; btn.disabled = false;
+    statusEl.textContent = "\u274c Network error: " + e.message;
+    btn.textContent = "\u2b06\ufe0f Push"; btn.disabled = false;
   }
 }
 
