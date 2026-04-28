@@ -1866,12 +1866,59 @@ document.addEventListener("input", e => {
   if (e.target && e.target.isContentEditable) scheduleDriveSync();
 });
 
+// ── auto-load from Drive on startup ──────────────────────────────────────────
+async function gdriveAutoLoad() {
+  const saved = JSON.parse(localStorage.getItem("aicu_gdrive") || "{}");
+  if (!saved.clientId || !saved.fileId) return;
+
+  loadGSI(() => {
+    _gdriveClient = google.accounts.oauth2.initTokenClient({
+      client_id: saved.clientId,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      prompt: "",
+      callback: async (resp) => {
+        if (resp.error) return;
+        _gdriveToken = resp.access_token;
+        _gdriveFileId = saved.fileId;
+        gdrivePillState("syncing");
+
+        try {
+          const res = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${saved.fileId}?alt=media`,
+            { headers: { Authorization: "Bearer " + _gdriveToken } }
+          );
+          if (!res.ok) { gdrivePillState("idle"); return; }
+
+          const html = await res.text();
+
+          // Extract PATIENTS array from the fetched HTML
+          const match = html.match(/\/\/ @PATIENTS_START\s*let PATIENTS = ([\s\S]*?);\s*\/\/ @PATIENTS_END/);
+          if (match) {
+            try {
+              const loadedPatients = JSON.parse(match[1]);
+              loadedPatients.forEach((p, i) => { if (PATIENTS[i]) PATIENTS[i] = p; });
+              renderAll();
+              showToast("☁️ Restored from Google Drive", "#1a5fa8");
+            } catch(e) { /* parse failed, use page defaults */ }
+          }
+          gdrivePillState("ok");
+          document.getElementById("gdrive-pill").textContent = "✓ loaded";
+        } catch(e) {
+          gdrivePillState("idle");
+        }
+      }
+    });
+    _gdriveClient.requestAccessToken();
+  });
+}
+
 // ── restore pill state on page load ──────────────────────────────────────────
 (function initDrivePill() {
   const saved = JSON.parse(localStorage.getItem("aicu_gdrive") || "{}");
   if (saved.clientId) {
     gdrivePillState("idle");
     if (saved.fileId) _gdriveFileId = saved.fileId;
+    gdriveAutoLoad();
   }
 })();
 
